@@ -1,26 +1,26 @@
-import { Container, Group, Stack, Text, Title } from "@mantine/core";
-import { ColorSchemeToggle } from "@/components/ColorSchemeToggle";
+import { Stack, Text, Title } from "@mantine/core";
+import { redirect } from "next/navigation";
+import { DashboardShell } from "@/components/shell/DashboardShell";
+import { createClient } from "@/lib/supabase/server";
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
   return (
-    <Container size="sm" py="xl">
-      <Stack gap="lg">
-        <Group justify="space-between" align="center">
-          <Title order={1}>Krello</Title>
-          <ColorSchemeToggle />
-        </Group>
+    <DashboardShell userEmail={user.email ?? "?"}>
+      <Stack gap="xs">
+        <Title order={2}>Dashboard</Title>
         <Text c="dimmed">
-          Kanban board dengan gamifikasi. Setup Fase 1 siap — isi{" "}
-          <Text span fw={600} inherit>
-            .env.local
-          </Text>{" "}
-          dari{" "}
-          <Text span fw={600} inherit>
-            .env.example
-          </Text>{" "}
-          untuk menyambungkan Supabase.
+          Pilih board di sidebar, atau buat board baru untuk mulai.
         </Text>
       </Stack>
-    </Container>
+    </DashboardShell>
   );
 }

@@ -60,20 +60,22 @@ Berdasarkan referensi (`image_11bf7a.jpg`), Krello akan menggunakan bahasa desai
 ## 6. Checklist Langkah Pengembangan (Step-by-Step Implementation)
 
 ### Fase 1: Inisiasi Proyek & Setup
-- [ ] Inisialisasi proyek Next.js.
-- [ ] Instalasi dependensi: MantineUI, TanStack Query, TanStack Form, Zod, dan *library drag-and-drop*.
-- [ ] Setup MantineUI *Provider* dan konfigurasi *Light/Dark Mode toggle*.
-- [ ] Setup koneksi Supabase (Project URL & Anon Key).
+- [x] Inisialisasi proyek Next.js.
+- [x] Instalasi dependensi: MantineUI, TanStack Query, TanStack Form, Zod, dan *library drag-and-drop*.
+- [x] Setup MantineUI *Provider* dan konfigurasi *Light/Dark Mode toggle*.
+- [x] Setup koneksi Supabase (Project URL & Anon Key).
 
 ### Fase 2: Skema Database (Supabase)
-- [ ] Buat tabel `users` atau gunakan *Supabase Auth* jika butuh multi-user.
-- [ ] Buat tabel `boards` dan `lists`.
-- [ ] Buat tabel `categories` dengan kolom: `id`, `name`, `color_code`.
-- [ ] Buat tabel `cards` dengan relasi ke `lists` dan `categories`.
-- [ ] Buat tabel `user_points` untuk melacak total poin dan *streak* (beserta *timestamp* aktivitas).
+- [x] Pakai *Supabase Auth* + tabel `profiles` (`name`, `email`) linked ke `auth.users`.
+- [x] Buat tabel `boards` dan `lists` (RLS: board owner; list/card dikontrol oleh `created_by`).
+- [x] Buat tabel `categories` dengan kolom: `id`, `name`, `color_code`.
+- [x] Buat tabel `cards` dengan relasi ke `lists` dan `categories`.
+- [x] Buat tabel `user_points` untuk melacak total poin dan *streak* (beserta *timestamp* aktivitas).
+- [x] Buat tabel `rewards` (katalog redeem global: Free Time 50pts, Coffee 100pts) — CRUD semua authenticated user.
+- [x] Halaman Auth `/login` — Login (email, password) & Sign up (email, password, confirm password) via Supabase Auth + TanStack Form/Zod + Mantine.
 
 ### Fase 3: Desain Sistem & UI Komponen Dasar
-- [ ] Implementasi *Glassmorphic background* dengan gradien pastel (terinspirasi dari `image_11bf7a.jpg`).
+- [ ] Implementasi *Glassmorphic background* dengan gradien pastel (terinspirasi dari `image_11bf7a.jpg`) di seluruh app (sebagian sudah di halaman login).
 - [ ] Buat komponen atomik Mantine: *Button (Light Blue)*, *Inputs*, *Modal*.
 - [ ] Buat komponen `CategoryBadge` dengan warna kustom.
 
