@@ -19,18 +19,28 @@ import {
   IconMoon,
   IconPlus,
   IconSun,
+  IconUser,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import { BoardsNav } from "@/components/boards/BoardsNav";
+import { CreateBoardModal } from "@/components/boards/CreateBoardModal";
 import { createClient } from "@/lib/supabase/client";
 
 type DashboardShellProps = {
   userEmail: string;
+  avatarUrl?: string | null;
   children: ReactNode;
 };
 
-export function DashboardShell({ userEmail, children }: DashboardShellProps) {
-  const [opened, { toggle }] = useDisclosure();
+export function DashboardShell({
+  userEmail,
+  avatarUrl,
+  children,
+}: DashboardShellProps) {
+  const [opened, { toggle, close: closeNavbar }] = useDisclosure();
+  const [createOpened, { open: openCreate, close: closeCreate }] =
+    useDisclosure();
   const router = useRouter();
   const { setColorScheme } = useMantineColorScheme();
   const isDark =
@@ -63,9 +73,10 @@ export function DashboardShell({ userEmail, children }: DashboardShellProps) {
             </Title>
           </Group>
 
-          <Menu shadow="md" width={200} position="bottom-end">
+          <Menu shadow="md" width={260} position="bottom-end">
             <Menu.Target>
               <Avatar
+                src={avatarUrl || undefined}
                 color="blue"
                 radius="xl"
                 component="button"
@@ -76,7 +87,17 @@ export function DashboardShell({ userEmail, children }: DashboardShellProps) {
               </Avatar>
             </Menu.Target>
             <Menu.Dropdown>
-              <Menu.Label>{userEmail}</Menu.Label>
+              <Menu.Label>
+                <Text size="xs" truncate="end" title={userEmail}>
+                  {userEmail}
+                </Text>
+              </Menu.Label>
+              <Menu.Item
+                leftSection={<IconUser size={16} />}
+                onClick={() => router.push("/profile")}
+              >
+                Profil
+              </Menu.Item>
               <Menu.Item
                 leftSection={
                   isDark ? <IconSun size={16} /> : <IconMoon size={16} />
@@ -105,10 +126,7 @@ export function DashboardShell({ userEmail, children }: DashboardShellProps) {
             <Text size="xs" fw={600} c="dimmed" tt="uppercase">
               Boards
             </Text>
-            {/* ponytail: boards list comes with Fase 2 schema; empty state for now */}
-            <Text size="sm" c="dimmed">
-              Belum ada board.
-            </Text>
+            <BoardsNav onNavigate={closeNavbar} />
           </Stack>
         </AppShell.Section>
         <AppShell.Section>
@@ -116,8 +134,7 @@ export function DashboardShell({ userEmail, children }: DashboardShellProps) {
             fullWidth
             variant="light"
             leftSection={<IconPlus size={16} />}
-            // ponytail: modal buat board menyusul
-            disabled
+            onClick={openCreate}
           >
             Board baru
           </Button>
@@ -125,6 +142,8 @@ export function DashboardShell({ userEmail, children }: DashboardShellProps) {
       </AppShell.Navbar>
 
       <AppShell.Main>{children}</AppShell.Main>
+
+      <CreateBoardModal opened={createOpened} onClose={closeCreate} />
     </AppShell>
   );
 }

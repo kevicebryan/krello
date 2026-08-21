@@ -1,10 +1,12 @@
 "use client";
 
-import { Button, PasswordInput, Stack, TextInput } from "@mantine/core";
+import { Button, PasswordInput, Stack, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useForm } from "@tanstack/react-form";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signupSchema } from "@/lib/auth/schemas";
+import { useEffect, useState } from "react";
+import { resetPasswordSchema } from "@/lib/auth/schemas";
 import { createClient } from "@/lib/supabase/client";
 
 function fieldError(errors: unknown[]): string | undefined {
@@ -17,58 +19,77 @@ function fieldError(errors: unknown[]): string | undefined {
   return undefined;
 }
 
-type SignupFormProps = {
-  onForgotPassword: () => void;
-};
-
-export function SignupForm({ onForgotPassword }: SignupFormProps) {
+export function ResetPasswordForm() {
   const router = useRouter();
+  const [ready, setReady] = useState(false);
+  const [sessionMissing, setSessionMissing] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        setSessionMissing(true);
+        notifications.show({
+          color: "red",
+          title: "Link tidak valid",
+          message:
+            "Link reset sudah kedaluwarsa atau tidak valid. Minta link baru dari halaman login.",
+        });
+      }
+      setReady(true);
+    });
+  }, []);
 
   const form = useForm({
     defaultValues: {
-      email: "",
       password: "",
       confirmPassword: "",
     },
     validators: {
-      onSubmit: signupSchema,
+      onSubmit: resetPasswordSchema,
     },
     onSubmit: async ({ value }) => {
       const supabase = createClient();
-      const { data, error } = await supabase.auth.signUp({
-        email: value.email.trim(),
+      const { error } = await supabase.auth.updateUser({
         password: value.password,
       });
 
       if (error) {
         notifications.show({
           color: "red",
-          title: "Gagal daftar",
+          title: "Gagal reset password",
           message: error.message,
         });
-        return;
-      }
-
-      if (data.user && !data.session) {
-        notifications.show({
-          color: "teal",
-          title: "Berhasil",
-          message:
-            "Akun dibuat. Cek email kamu untuk konfirmasi sebelum masuk.",
-        });
-        form.reset();
         return;
       }
 
       notifications.show({
         color: "teal",
         title: "Berhasil",
-        message: "Akun dibuat. Kamu sudah masuk.",
+        message: "Password baru sudah disimpan.",
       });
       router.replace("/");
       router.refresh();
     },
   });
+
+  if (!ready) {
+    return null;
+  }
+
+  if (sessionMissing) {
+    return (
+      <Stack gap="md">
+        <Text c="dimmed" size="sm" ta="center">
+          Link reset tidak bisa dipakai. Minta link baru dari halaman login.
+        </Text>
+        <Button component={Link} href="/login" fullWidth>
+          Kembali ke login
+        </Button>
+      </Stack>
+    );
+  }
 
   return (
     <form
@@ -79,25 +100,10 @@ export function SignupForm({ onForgotPassword }: SignupFormProps) {
       }}
     >
       <Stack gap="md">
-        <form.Field name="email">
-          {(field) => (
-            <TextInput
-              label="Email"
-              placeholder="kamu@email.com"
-              type="email"
-              autoComplete="email"
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(e) => field.handleChange(e.currentTarget.value)}
-              error={fieldError(field.state.meta.errors)}
-            />
-          )}
-        </form.Field>
-
         <form.Field name="password">
           {(field) => (
             <PasswordInput
-              label="Password"
+              label="Password baru"
               placeholder="Minimal 6 karakter"
               autoComplete="new-password"
               value={field.state.value}
@@ -112,7 +118,7 @@ export function SignupForm({ onForgotPassword }: SignupFormProps) {
           {(field) => (
             <PasswordInput
               label="Confirm password"
-              placeholder="Ulangi password"
+              placeholder="Ulangi password baru"
               autoComplete="new-password"
               value={field.state.value}
               onBlur={field.handleBlur}
@@ -125,20 +131,10 @@ export function SignupForm({ onForgotPassword }: SignupFormProps) {
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
             <Button type="submit" fullWidth loading={isSubmitting} mt="xs">
-              Daftar
+              Simpan password baru
             </Button>
           )}
         </form.Subscribe>
-
-        <Button
-          type="button"
-          variant="transparent"
-          color="gray"
-          fullWidth
-          onClick={onForgotPassword}
-        >
-          Lupa password?
-        </Button>
       </Stack>
     </form>
   );

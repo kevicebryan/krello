@@ -1,7 +1,9 @@
 -- Krello Fase 2: Database schema
 -- Jalankan seluruh file ini di Supabase Dashboard → SQL Editor → Run
--- Model: Supabase Auth + profiles (name, email)
+-- Model: Supabase Auth + profiles (name, email, avatar_url)
 -- RLS: board owner mengontrol board; list/card hanya dikontrol oleh pembuatnya (created_by)
+-- Avatar: public storage bucket `images`, path avatars/{user_id}/...
+--          (lihat juga avatar_url_migration.sql bila schema sudah pernah di-run)
 
 -- ---------------------------------------------------------------------------
 -- Extensions
@@ -17,6 +19,7 @@ create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   name text not null,
   email text not null,
+  avatar_url text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint profiles_email_unique unique (email)
@@ -26,20 +29,23 @@ create table public.boards (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
   title text not null default 'My Board',
+  pinned boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 create index boards_user_id_idx on public.boards (user_id);
+create index boards_user_pinned_created_idx
+  on public.boards (user_id, pinned desc, created_at desc);
 
--- Status columns di kanban (Todo, On Progress, Under Review, Done)
+-- Status columns di kanban (Todo, In Progress, Done)
 -- created_by = siapa yang buat list → hanya dia yang boleh control list tsb
 create table public.lists (
   id uuid primary key default gen_random_uuid(),
   board_id uuid not null references public.boards (id) on delete cascade,
   created_by uuid not null references public.profiles (id) on delete cascade,
   title text not null,
-  -- Stabil untuk logic poin nanti: todo | on_progress | under_review | done
+  -- Stabil untuk logic poin nanti: todo | in_progress | done
   key text not null,
   position integer not null default 0,
   created_at timestamptz not null default now(),
@@ -69,6 +75,7 @@ create table public.cards (
   category_id uuid references public.categories (id) on delete set null,
   title text not null,
   description text,
+  deadline date,
   position integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -219,7 +226,65 @@ create trigger cards_lock_created_by
   for each row execute function public.lock_created_by();
 
 -- ---------------------------------------------------------------------------
--- On signup: profile + points + default board + 4 lists (created_by = user)
+-- Shared board seed (3 lists + starter card) — dipakai signup & create board
+-- ---------------------------------------------------------------------------
+create or replace function private.seed_board(p_user_id uuid, p_title text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_board_id uuid;
+  todo_list_id uuid;
+begin
+  insert into public.boards (user_id, title)
+  values (p_user_id, coalesce(nullif(trim(p_title), ''), 'My Board'))
+  returning id into new_board_id;
+
+  insert into public.lists (board_id, created_by, title, key, position)
+  values
+    (new_board_id, p_user_id, 'Todo', 'todo', 0),
+    (new_board_id, p_user_id, 'In Progress', 'in_progress', 1),
+    (new_board_id, p_user_id, 'Done', 'done', 2);
+
+  select id into todo_list_id
+  from public.lists
+  where board_id = new_board_id
+    and key = 'todo';
+
+  insert into public.cards (list_id, created_by, title, position)
+  values (todo_list_id, p_user_id, 'Get homework done', 0);
+
+  return new_board_id;
+end;
+$$;
+
+revoke all on function private.seed_board(uuid, text) from public;
+grant execute on function private.seed_board(uuid, text) to postgres, service_role;
+
+create or replace function public.create_board_with_defaults(p_title text default 'My Board')
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+begin
+  if uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  return private.seed_board(uid, p_title);
+end;
+$$;
+
+revoke all on function public.create_board_with_defaults(text) from public;
+grant execute on function public.create_board_with_defaults(text) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- On signup: profile + points + default board (via seed template)
 -- ---------------------------------------------------------------------------
 create or replace function public.handle_new_user()
 returns trigger
@@ -227,8 +292,6 @@ language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  new_board_id uuid;
 begin
   insert into public.profiles (id, name, email)
   values (
@@ -243,15 +306,7 @@ begin
   insert into public.user_points (user_id)
   values (new.id);
 
-  insert into public.boards (user_id, title)
-  values (new.id, 'My Board')
-  returning id into new_board_id;
-
-  insert into public.lists (board_id, created_by, title, key, position) values
-    (new_board_id, new.id, 'Todo', 'todo', 0),
-    (new_board_id, new.id, 'On Progress', 'on_progress', 1),
-    (new_board_id, new.id, 'Under Review', 'under_review', 2),
-    (new_board_id, new.id, 'Done', 'done', 3);
+  perform private.seed_board(new.id, 'My Board');
 
   return new;
 end;
@@ -427,6 +482,7 @@ create policy "rewards_delete_authenticated"
 -- ---------------------------------------------------------------------------
 -- Done. Setelah run:
 -- 1. Buat user di Authentication (atau sign up dari app)
--- 2. Cek: profiles, boards, lists (4 default), user_points, rewards (2 items)
+-- 2. Cek: profiles, boards, lists (3 default + starter card), user_points, rewards (2 items)
 -- 3. Client wajib set created_by = auth.uid() saat insert list/card
+-- 4. Buat Storage bucket public `images`, lalu run avatar_url_migration.sql
 -- ---------------------------------------------------------------------------

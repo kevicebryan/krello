@@ -1,10 +1,9 @@
 "use client";
 
-import { Button, PasswordInput, Stack, TextInput } from "@mantine/core";
+import { Button, Stack, TextInput } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useForm } from "@tanstack/react-form";
-import { useRouter } from "next/navigation";
-import { loginSchema } from "@/lib/auth/schemas";
+import { forgotPasswordSchema } from "@/lib/auth/schemas";
 import { createClient } from "@/lib/supabase/client";
 
 function fieldError(errors: unknown[]): string | undefined {
@@ -17,32 +16,32 @@ function fieldError(errors: unknown[]): string | undefined {
   return undefined;
 }
 
-type LoginFormProps = {
-  onForgotPassword: () => void;
+type ForgotPasswordFormProps = {
+  onBackToLogin: () => void;
 };
 
-export function LoginForm({ onForgotPassword }: LoginFormProps) {
-  const router = useRouter();
-
+export function ForgotPasswordForm({ onBackToLogin }: ForgotPasswordFormProps) {
   const form = useForm({
     defaultValues: {
       email: "",
-      password: "",
     },
     validators: {
-      onSubmit: loginSchema,
+      onSubmit: forgotPasswordSchema,
     },
     onSubmit: async ({ value }) => {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({
-        email: value.email.trim(),
-        password: value.password,
-      });
+      const redirectTo = new URL("/auth/callback", window.location.origin);
+      redirectTo.searchParams.set("next", "/reset-password");
+
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        value.email.trim(),
+        { redirectTo: redirectTo.toString() },
+      );
 
       if (error) {
         notifications.show({
           color: "red",
-          title: "Gagal masuk",
+          title: "Gagal kirim link",
           message: error.message,
         });
         return;
@@ -50,11 +49,11 @@ export function LoginForm({ onForgotPassword }: LoginFormProps) {
 
       notifications.show({
         color: "teal",
-        title: "Berhasil",
-        message: "Kamu sudah masuk.",
+        title: "Cek email kamu",
+        message:
+          "Jika email terdaftar, kami kirim link reset password. Cek inbox atau folder spam.",
       });
-      router.replace("/");
-      router.refresh();
+      form.reset();
     },
   });
 
@@ -82,24 +81,10 @@ export function LoginForm({ onForgotPassword }: LoginFormProps) {
           )}
         </form.Field>
 
-        <form.Field name="password">
-          {(field) => (
-            <PasswordInput
-              label="Password"
-              placeholder="••••••••"
-              autoComplete="current-password"
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(e) => field.handleChange(e.currentTarget.value)}
-              error={fieldError(field.state.meta.errors)}
-            />
-          )}
-        </form.Field>
-
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
             <Button type="submit" fullWidth loading={isSubmitting} mt="xs">
-              Masuk
+              Kirim link reset
             </Button>
           )}
         </form.Subscribe>
@@ -109,9 +94,9 @@ export function LoginForm({ onForgotPassword }: LoginFormProps) {
           variant="transparent"
           color="gray"
           fullWidth
-          onClick={onForgotPassword}
+          onClick={onBackToLogin}
         >
-          Lupa password?
+          Kembali ke login
         </Button>
       </Stack>
     </form>
