@@ -13,6 +13,8 @@ export type List = {
   created_by: string;
   title: string;
   key: string;
+  /** At most one list per board may be the Done column (+3 pts on move-in). */
+  is_done: boolean;
   position: number;
   created_at: string;
 };

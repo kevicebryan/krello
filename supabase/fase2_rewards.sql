@@ -29,6 +29,13 @@ insert into public.rewards (key, name, description, cost_points, position) value
     'Tukar poin untuk secangkir specialty coffee atau matcha favorit.',
     100,
     1
+  ),
+  (
+    'matcha_break',
+    'Matcha Break',
+    'Tukar poin untuk keluar beli matcha — istirahat singkat dengan minum favoritmu.',
+    2,
+    2
   )
 on conflict (key) do nothing;
 

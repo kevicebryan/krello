@@ -401,7 +401,11 @@ export function SortableKanbanColumn({
         ref={setNodeRef}
         p="md"
         radius="md"
-        bg="var(--mantine-color-default-hover)"
+        bg={
+          list.is_done
+            ? "var(--mantine-color-teal-light)"
+            : "var(--mantine-color-default-hover)"
+        }
         style={style}
       >
         <Group justify="space-between" mb="sm" wrap="nowrap">
@@ -420,6 +424,11 @@ export function SortableKanbanColumn({
             <Text fw={600} size="sm" truncate style={{ flex: 1, minWidth: 0 }}>
               {list.title}
             </Text>
+            {list.is_done ? (
+              <Badge size="xs" color="teal" variant="filled">
+                Done
+              </Badge>
+            ) : null}
           </Group>
           <Group gap={4} wrap="nowrap">
             <Badge size="sm" variant="light" circle>
@@ -447,7 +456,7 @@ export function SortableKanbanColumn({
                   leftSection={<IconPencil size={14} />}
                   onClick={() => setDialog("rename")}
                 >
-                  Rename
+                  Rename / Edit
                 </Menu.Item>
                 <Menu.Item
                   color="red"
@@ -522,6 +531,7 @@ export function SortableKanbanColumn({
           boardId={boardId}
           listId={list.id}
           currentTitle={list.title}
+          isDone={list.is_done}
         />
       ) : null}
 

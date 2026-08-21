@@ -188,6 +188,22 @@ export async function renameList(
   if (error) throw error;
 }
 
+export async function updateList(
+  listId: string,
+  input: { title: string; isDone: boolean },
+): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("lists")
+    .update({ title: input.title, is_done: input.isDone })
+    .eq("id", listId);
+
+  if (error) throw error;
+}
+
+/** Points awarded when a card enters an is_done list (DB trigger). */
+export const DONE_LIST_POINTS = 3;
+
 export async function deleteList(listId: string): Promise<void> {
   const supabase = createClient();
   const { error } = await supabase.from("lists").delete().eq("id", listId);

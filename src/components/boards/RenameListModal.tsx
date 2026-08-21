@@ -1,12 +1,12 @@
 "use client";
 
-import { Button, Modal, Stack, TextInput } from "@mantine/core";
+import { Button, Modal, Stack, Switch, Text, TextInput } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
-import { renameList } from "@/lib/boards/api";
+import { updateList } from "@/lib/boards/api";
 import { boardKeys } from "@/lib/boards/keys";
-import { listTitleSchema } from "@/lib/boards/schemas";
+import { updateListSchema } from "@/lib/boards/schemas";
 import { fieldError } from "@/lib/form-errors";
 
 type RenameListModalProps = {
@@ -15,6 +15,7 @@ type RenameListModalProps = {
   boardId: string;
   listId: string;
   currentTitle: string;
+  isDone: boolean;
 };
 
 export function RenameListModal({
@@ -23,38 +24,45 @@ export function RenameListModal({
   boardId,
   listId,
   currentTitle,
+  isDone,
 }: RenameListModalProps) {
   const queryClient = useQueryClient();
 
   const form = useForm({
     defaultValues: {
       title: currentTitle,
+      isDone,
     },
     validators: {
-      onSubmit: listTitleSchema,
+      onSubmit: updateListSchema,
     },
     onSubmit: async ({ value }) => {
       try {
         const nextTitle = value.title.trim();
-        if (nextTitle === currentTitle) {
+        if (nextTitle === currentTitle && value.isDone === isDone) {
           onClose();
           return;
         }
 
-        await renameList(listId, nextTitle);
+        await updateList(listId, {
+          title: nextTitle,
+          isDone: value.isDone,
+        });
         await queryClient.invalidateQueries({
           queryKey: boardKeys.detail(boardId),
         });
         notifications.show({
           color: "teal",
           title: "Kolom diubah",
-          message: `Nama diganti jadi "${nextTitle}".`,
+          message: value.isDone
+            ? `"${nextTitle}" jadi kolom Done (+3 poin saat tiket masuk).`
+            : `Nama diganti jadi "${nextTitle}".`,
         });
         onClose();
       } catch (error) {
         notifications.show({
           color: "red",
-          title: "Gagal rename",
+          title: "Gagal menyimpan kolom",
           message: error instanceof Error ? error.message : "Terjadi kesalahan",
         });
       }
@@ -67,7 +75,7 @@ export function RenameListModal({
   }
 
   return (
-    <Modal opened={opened} onClose={handleClose} title="Rename kolom" centered>
+    <Modal opened={opened} onClose={handleClose} title="Edit kolom" centered>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -87,6 +95,26 @@ export function RenameListModal({
                 onChange={(e) => field.handleChange(e.currentTarget.value)}
                 error={fieldError(field.state.meta.errors)}
               />
+            )}
+          </form.Field>
+
+          <form.Field name="isDone">
+            {(field) => (
+              <Stack gap={4}>
+                <Switch
+                  label="Kolom Done"
+                  description="Hanya satu kolom Done per board. Tiket yang masuk ke sini dapat +3 poin."
+                  checked={field.state.value}
+                  onChange={(e) =>
+                    field.handleChange(e.currentTarget.checked)
+                  }
+                />
+                {field.state.value && !isDone ? (
+                  <Text size="xs" c="dimmed">
+                    Kolom Done sebelumnya (jika ada) akan otomatis dilepas.
+                  </Text>
+                ) : null}
+              </Stack>
             )}
           </form.Field>
 

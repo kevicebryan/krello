@@ -20,11 +20,11 @@ begin
   values (p_user_id, coalesce(nullif(trim(p_title), ''), 'My Board'))
   returning id into new_board_id;
 
-  insert into public.lists (board_id, created_by, title, key, position)
+  insert into public.lists (board_id, created_by, title, key, position, is_done)
   values
-    (new_board_id, p_user_id, 'Todo', 'todo', 0),
-    (new_board_id, p_user_id, 'In Progress', 'in_progress', 1),
-    (new_board_id, p_user_id, 'Done', 'done', 2);
+    (new_board_id, p_user_id, 'Todo', 'todo', 0, false),
+    (new_board_id, p_user_id, 'In Progress', 'in_progress', 1, false),
+    (new_board_id, p_user_id, 'Done', 'done', 2, true);
 
   select id into todo_list_id
   from public.lists
