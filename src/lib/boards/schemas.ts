@@ -18,6 +18,15 @@ export const listTitleSchema = z.object({
     .max(80, "Nama maksimal 80 karakter"),
 });
 
+export const updateListSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, "Nama kolom wajib diisi")
+    .max(80, "Nama maksimal 80 karakter"),
+  isDone: z.boolean(),
+});
+
 export const cardTitleSchema = z.object({
   title: z
     .string()
@@ -44,6 +53,7 @@ export const updateCardSchema = createCardSchema;
 export type BoardTitleValues = z.infer<typeof boardTitleSchema>;
 export type CreateBoardValues = BoardTitleValues;
 export type ListTitleValues = z.infer<typeof listTitleSchema>;
+export type UpdateListValues = z.infer<typeof updateListSchema>;
 export type CardTitleValues = z.infer<typeof cardTitleSchema>;
 export type CreateCardValues = z.infer<typeof createCardSchema>;
 export type UpdateCardValues = CreateCardValues;

@@ -27,7 +27,7 @@ export async function getBoardDetail(
 
   const { data: lists, error: listsError } = await supabase
     .from("lists")
-    .select("id, board_id, created_by, title, key, position, created_at")
+    .select("id, board_id, created_by, title, key, is_done, position, created_at")
     .eq("board_id", boardId)
     .order("position", { ascending: true });
 

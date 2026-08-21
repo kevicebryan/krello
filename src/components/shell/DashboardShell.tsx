@@ -18,6 +18,7 @@ import {
   IconLogout,
   IconMoon,
   IconPlus,
+  IconShoppingBag,
   IconSun,
   IconUser,
 } from "@tabler/icons-react";
@@ -25,6 +26,7 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { BoardsNav } from "@/components/boards/BoardsNav";
 import { CreateBoardModal } from "@/components/boards/CreateBoardModal";
+import { UserPointsCard } from "@/components/shell/UserPointsCard";
 import { createClient } from "@/lib/supabase/client";
 
 type DashboardShellProps = {
@@ -121,6 +123,11 @@ export function DashboardShell({
       </AppShell.Header>
 
       <AppShell.Navbar p="md">
+        <AppShell.Section>
+          <Stack gap="sm" mb="md">
+            <UserPointsCard />
+          </Stack>
+        </AppShell.Section>
         <AppShell.Section grow>
           <Stack gap="xs">
             <Text size="xs" fw={600} c="dimmed" tt="uppercase">
@@ -130,14 +137,27 @@ export function DashboardShell({
           </Stack>
         </AppShell.Section>
         <AppShell.Section>
-          <Button
-            fullWidth
-            variant="light"
-            leftSection={<IconPlus size={16} />}
-            onClick={openCreate}
-          >
-            Board baru
-          </Button>
+          <Stack gap="xs">
+            <Button
+              fullWidth
+              variant="outline"
+              leftSection={<IconShoppingBag size={16} />}
+              onClick={() => {
+                router.push("/shop");
+                closeNavbar();
+              }}
+            >
+              Point Shop
+            </Button>
+            <Button
+              fullWidth
+              variant="light"
+              leftSection={<IconPlus size={16} />}
+              onClick={openCreate}
+            >
+              Board baru
+            </Button>
+          </Stack>
         </AppShell.Section>
       </AppShell.Navbar>
 

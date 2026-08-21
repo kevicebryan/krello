@@ -40,6 +40,7 @@ create index boards_user_pinned_created_idx
 
 -- Status columns di kanban (Todo, In Progress, Done)
 -- created_by = siapa yang buat list → hanya dia yang boleh control list tsb
+-- is_done = kolom Done untuk +3 poin (maks 1 per board)
 create table public.lists (
   id uuid primary key default gen_random_uuid(),
   board_id uuid not null references public.boards (id) on delete cascade,
@@ -48,12 +49,16 @@ create table public.lists (
   -- Stabil untuk logic poin nanti: todo | in_progress | done
   key text not null,
   position integer not null default 0,
+  is_done boolean not null default false,
   created_at timestamptz not null default now(),
   constraint lists_board_key_unique unique (board_id, key)
 );
 
 create index lists_board_id_idx on public.lists (board_id);
 create index lists_created_by_idx on public.lists (created_by);
+create unique index lists_one_done_per_board_idx
+  on public.lists (board_id)
+  where is_done = true;
 
 create table public.categories (
   id uuid primary key default gen_random_uuid(),
@@ -225,6 +230,72 @@ create trigger cards_lock_created_by
   before update on public.cards
   for each row execute function public.lock_created_by();
 
+-- Satu kolom Done per board: clear is_done lain saat list baru ditandai Done
+create or replace function public.ensure_single_done_list()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.is_done = true then
+    update public.lists
+    set is_done = false
+    where board_id = new.board_id
+      and id is distinct from new.id
+      and is_done = true;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger lists_ensure_single_done
+  before insert or update of is_done on public.lists
+  for each row
+  when (new.is_done = true)
+  execute function public.ensure_single_done_list();
+
+-- +3 poin saat kartu pindah ke kolom is_done
+create or replace function public.award_points_on_card_done()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  from_is_done boolean;
+  to_is_done boolean;
+  points_delta integer := 3;
+begin
+  if new.list_id is not distinct from old.list_id then
+    return new;
+  end if;
+
+  select coalesce(l.is_done, false) into from_is_done
+  from public.lists l
+  where l.id = old.list_id;
+
+  select coalesce(l.is_done, false) into to_is_done
+  from public.lists l
+  where l.id = new.list_id;
+
+  if coalesce(from_is_done, false) = false and coalesce(to_is_done, false) = true then
+    insert into public.user_points (user_id, total_points, last_activity_at)
+    values (new.created_by, points_delta, now())
+    on conflict (user_id) do update
+    set
+      total_points = public.user_points.total_points + points_delta,
+      last_activity_at = now(),
+      updated_at = now();
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger cards_award_points_on_done
+  after update of list_id on public.cards
+  for each row
+  execute function public.award_points_on_card_done();
+
 -- ---------------------------------------------------------------------------
 -- Shared board seed (3 lists + starter card) — dipakai signup & create board
 -- ---------------------------------------------------------------------------
@@ -242,11 +313,11 @@ begin
   values (p_user_id, coalesce(nullif(trim(p_title), ''), 'My Board'))
   returning id into new_board_id;
 
-  insert into public.lists (board_id, created_by, title, key, position)
+  insert into public.lists (board_id, created_by, title, key, position, is_done)
   values
-    (new_board_id, p_user_id, 'Todo', 'todo', 0),
-    (new_board_id, p_user_id, 'In Progress', 'in_progress', 1),
-    (new_board_id, p_user_id, 'Done', 'done', 2);
+    (new_board_id, p_user_id, 'Todo', 'todo', 0, false),
+    (new_board_id, p_user_id, 'In Progress', 'in_progress', 1, false),
+    (new_board_id, p_user_id, 'Done', 'done', 2, true);
 
   select id into todo_list_id
   from public.lists

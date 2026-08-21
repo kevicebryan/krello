@@ -27,6 +27,7 @@ import {
   SortableKanbanColumn,
 } from "@/components/boards/KanbanColumn";
 import {
+  DONE_LIST_POINTS,
   fetchBoardDetail,
   syncCardPlacements,
   syncListPositions,
@@ -40,6 +41,9 @@ import {
 } from "@/lib/boards/dnd";
 import { boardKeys } from "@/lib/boards/keys";
 import type { BoardDetail, Card, ListWithCards } from "@/lib/boards/types";
+import { celebrateDone } from "@/lib/celebrate";
+import { pointsKeys } from "@/lib/points/keys";
+import type { UserPoints } from "@/lib/points/types";
 
 type BoardViewProps = {
   boardId: string;
@@ -89,7 +93,11 @@ function ListPreview({ list }: { list: ListWithCards }) {
     <Paper
       p="md"
       radius="md"
-      bg="var(--mantine-color-default-hover)"
+      bg={
+        list.is_done
+          ? "var(--mantine-color-teal-light)"
+          : "var(--mantine-color-default-hover)"
+      }
       shadow="md"
       style={{ minWidth: 280, maxWidth: 320, opacity: 0.95 }}
     >
@@ -231,6 +239,18 @@ function BoardKanban({
       return;
     }
 
+    const serverByCard = new Map(
+      serverPlacements.map((p) => [p.cardId, p.listId]),
+    );
+    const doneListIds = new Set(
+      nextLists.filter((list) => list.is_done).map((list) => list.id),
+    );
+    const cardsMovedToDone = nextPlacements.filter((p) => {
+      const fromListId = serverByCard.get(p.cardId);
+      if (!fromListId || fromListId === p.listId) return false;
+      return doneListIds.has(p.listId) && !doneListIds.has(fromListId);
+    }).length;
+
     setLists(nextLists);
     listsRef.current = nextLists;
 
@@ -239,6 +259,29 @@ function BoardKanban({
       await queryClient.invalidateQueries({
         queryKey: boardKeys.detail(boardId),
       });
+      if (cardsMovedToDone > 0) {
+        const earned = cardsMovedToDone * DONE_LIST_POINTS;
+        // Shell poin card shares this cache — bump immediately, then confirm.
+        queryClient.setQueryData<UserPoints>(pointsKeys.me(), (prev) =>
+          prev
+            ? {
+                ...prev,
+                total_points: prev.total_points + earned,
+                last_activity_at: new Date().toISOString(),
+              }
+            : prev,
+        );
+        await queryClient.refetchQueries({ queryKey: pointsKeys.me() });
+        celebrateDone();
+        notifications.show({
+          color: "teal",
+          title: `+${earned} poin`,
+          message:
+            cardsMovedToDone === 1
+              ? "Tiket masuk kolom Done."
+              : `${cardsMovedToDone} tiket masuk kolom Done.`,
+        });
+      }
     } catch (error) {
       setLists(serverLists);
       listsRef.current = serverLists;
